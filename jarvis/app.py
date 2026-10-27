@@ -285,7 +285,11 @@ class Assistant:
             if " " in needle and needle in phrase:
                 return phrase.replace(needle, " ", 1).strip(), True
             for index, token in enumerate(words):
-                # Низкий порог для wake word — Whisper часто путает «shadow».
+                # "shutdown" is close to "shadow" in edit distance; never
+                # strip a power command as if it were the wake word.
+                if needle == "shadow" and token in {"shutdown", "shutting"}:
+                    continue
+                # Lower threshold for shadow because Whisper often misrecognizes it.
                 threshold = 0.6 if needle in ("shadow", "шедоу", "шэдоу", "шадоу") else 0.8
                 if difflib.SequenceMatcher(None, token, needle).ratio() >= threshold:
                     rest = words[:index] + words[index + 1 :]
