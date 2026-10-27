@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import difflib
 import json
 import os
 import re
@@ -325,6 +326,11 @@ class Tools:
     # ------------------------------------------------------------------ apps
     def _tool_open_app(self, name: str) -> str:
         key = name.strip().lower().replace("ё", "е")
+        if key not in APP_ALIASES:
+            # fuzzy fallback to a known app alias (handles typos like "prettyfy")
+            close = difflib.get_close_matches(key, APP_ALIASES.keys(), n=1, cutoff=0.62)
+            if close:
+                key = close[0]
         target = APP_ALIASES.get(key, name.strip())
         try:
             if target.startswith(SITE_PREFIXES) or re.match(r"^[\w-]+\.[a-z]{2,}(/|$)", target):
