@@ -1,0 +1,58 @@
+﻿{
+  "assistant_name": "Shadow",
+  "wake_words": [
+    "shadow",
+    "шедоу",
+    "шэдоу",
+    "шадоу",
+    "джарвис",
+    "jarvis",
+    "компьютер"
+  ],
+  "require_wake_word": false,
+  "audio": {
+    "device": "Mic (MCHOSE V9 PRO)",
+    "sample_rate": 16000,
+    "silence_ms": 500,
+    "max_phrase_s": 15,
+    "min_rms": 150,
+    "pre_roll_ms": 200,
+    "wake_word_enabled": false,
+    "continuous_conversation": false,
+    "conversation_timeout": 8.0
+  },
+  "asr": {
+    "model": "small",
+    "device": "auto",
+    "compute_type": "auto",
+    "language": null,
+    "beam_size": 1,
+    "learn_words": true,
+    "hotwords": [],
+    "hotwords_limit": 40,
+    "hotwords_min_count": 2
+  },
+  "tts": {
+    "enabled": true,
+    "engine": "edge",
+    "voice": "ru-RU-SvetlanaNeural",
+    "rate": "+12%",
+    "pitch": "+120Hz",
+    "volume": "+0%"
+  },
+  "llm": {
+    "base_url": "http://127.0.0.1:11434",
+    "model": "qwen3:8b",
+    "temperature": 0.3,
+    "think": true,
+    "max_tool_rounds": 5,
+    "timeout_s": 240,
+    "history_messages": 12
+  },
+  "safety": {
+    "confirm_destructive": true,
+    "audit_log": true
+  }
+}
+
+

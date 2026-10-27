@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+logs/
+_*.py
+_*.mp3
+.tts_test*
