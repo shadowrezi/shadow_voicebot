@@ -492,23 +492,26 @@ def manage_vocab(args: argparse.Namespace) -> int:
         seed_words=[str(w) for w in asr_cfg.get("hotwords") or []],
     )
     for word in args.remember or []:
-        vocab.remember(word)
-        print(paint(f"remembered: {word}", "green"))
+        if vocab.add_word(word):
+            print(paint(f"remembered: {word}", "green"))
+        else:
+            print(paint(f"already in vocabulary: {word}", "dim"))
     for word in args.forget or []:
-        if vocab.forget(word):
+        if vocab.remove_word(word):
             print(paint(f"forgot: {word}", "green"))
         else:
             print(paint(f"not in vocabulary: {word}", "dim"))
     if args.vocab:
-        pinned = vocab.pinned
-        if pinned:
-            print(paint("pinned: " + ", ".join(pinned), "cyan"))
-        top = vocab.top(40)
-        if top:
+        words = vocab.list_words()
+        if words:
+            print(paint("vocabulary: " + ", ".join(words[:40]), "cyan"))
+        stats = vocab.stats()
+        learned = stats.get("learned", {})
+        if learned:
             print(paint("learned (word x count):", "bold"))
-            for word, count in top:
+            for word, count in learned.items():
                 print(f"  {word} ×{count}")
-        elif not pinned:
+        if not words and not learned:
             print(paint("vocabulary is empty - assistant has not learned anything yet.", "dim"))
     return 0
 

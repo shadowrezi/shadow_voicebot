@@ -55,6 +55,8 @@ APP_ALIASES = {
     "browser": "chrome",
     "firefox": "firefox",
     "файрфокс": "firefox",
+    "фераерфокс": "firefox",
+    "фаеерфокс": "firefox",
     "edge": "msedge",
     "эдж": "msedge",
     "стим": "steam://open/main",
@@ -329,7 +331,10 @@ class Tools:
             if "://" in target or target.endswith(":"):
                 os.startfile(target)  # noqa: S606 — протокол приложения
                 return self._t(f"Запустил {target}", f"Launched {target}")
-            subprocess.Popen(target, shell=True)  # noqa: S602 — имя приложения
+            try:
+                os.startfile(target)  # noqa: S606 — resolves App Paths on Windows
+            except OSError:
+                subprocess.Popen(f'start "" {target}', shell=True)  # noqa: S602
             return self._t(f"Запустил {target}", f"Launched {target}")
         except Exception as exc:  # noqa: BLE001
             return self._t(f"Не удалось открыть '{name}': {exc}", f"Failed to open '{name}': {exc}")

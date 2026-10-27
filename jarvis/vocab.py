@@ -257,7 +257,7 @@ class Vocabulary:
                 "words": len(self.words),
                 "corrections": len(self.corrections),
                 "learned": dict(self.learned.most_common(20)),
-                "hotwords": self.hotwords(),
+                "hotwords": " ".join(list(self.words)[: self.limit]),
             }
 
     def list_words(self) -> list[str]:
