@@ -292,6 +292,22 @@ class Assistant:
                     return " ".join(rest), True
         return phrase, False
 
+    def _warmup_audio(self) -> None:
+        """Kick the ASR model and VAD with a short silent sample so the first real
+        phrase is not delayed after PgUp (cold-start latency)."""
+        try:
+            import numpy as np
+
+            silent = np.zeros(1600, dtype=np.int16)
+            self.asr.transcribe(silent)
+            try:
+                self.mic._has_speech(silent)
+            except Exception:
+                pass
+        except Exception:  # noqa: BLE001 - warmup must not break startup
+            pass
+
+    # ------------------------------------------------------------------ modes
     # ------------------------------------------------------------------ modes
     def check(self) -> int:
         print(paint("Environment check", "bold"))
@@ -360,6 +376,7 @@ class Assistant:
         floor = self.mic.calibrate()
         self.print_status(f"noise {floor:.0f}, threshold {self.mic.threshold:.0f}", "dim")
         self.asr.load()
+        threading.Thread(target=self._warmup_audio, daemon=True).start()
         hot = self.vocab.hotwords()
         if hot:
             self.print_status(f"feeding recognizer {len(hot.split())} frequent words", "dim")
