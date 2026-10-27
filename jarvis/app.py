@@ -403,9 +403,8 @@ class Assistant:
             while not self._stop.is_set():
                 try:
                     in_conversation = time.monotonic() < self._conversation_until
-                    # If not in conversation - wait only if wake word is required,
-                    # otherwise start listening right away.
-                    if not in_conversation and self.config.get("require_wake_word", False):
+                    # If not in conversation - wait for PgUp or wake word.
+                    if not in_conversation:
                         self.print_status("waiting for PgUp or wake word...", "dim")
                         # Ждём PgUp или wake word
                         while not self._stop.is_set():
