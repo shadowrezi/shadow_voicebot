@@ -5,3 +5,4 @@ logs/
 _*.py
 _*.mp3
 .tts_test*
+config.json

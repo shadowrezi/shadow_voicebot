@@ -305,6 +305,9 @@ class Tools:
             fn("vocab_list", "Показать слова в пользовательском словаре.", {}, []),
             fn("get_weather", "Узнать погоду в городе через интернет (wttr.in).",
                {"city": {"type": "string", "description": "Например: Москва"}}, ["city"]),
+            fn("get_currency", "Получить курс валюты Monobank.",
+               {"currency": {"type": "string", "description": "usd / eur / gbr / pln / cad / cny"}}, []),
+            fn("money_on_card", "Узнать баланс и лимиты по картам Monobank.", {}, []),
         ]
 
     # ------------------------------------------------------------------ dispatch
@@ -521,7 +524,73 @@ class Tools:
         except Exception as exc:  # noqa: BLE001
             return self._t(f"Ошибка погоды: {type(exc).__name__}: {exc}", f"Weather error: {type(exc).__name__}: {exc}")
 
-    # ------------------------------------------------------------------ sound
+    # ------------------------------------------------------------------ currency
+    def _tool_get_currency(self, currency: str = "usd") -> str:
+        """Monobank exchange rate (UAH base)."""
+        try:
+            response = requests.get("https://api.monobank.ua/bank/currency", timeout=10)
+            response.raise_for_status()
+            rates = response.json()
+        except Exception as exc:  # noqa: BLE001
+            return f"Monobank error: {type(exc).__name__}: {exc}"
+
+        code_map = {"usd": 840, "eur": 978, "gbr": 826, "pln": 985, "cad": 124, "cny": 156}
+        demand = code_map.get(currency.lower(), 840)
+        for item in rates:
+            if item["currencyCodeA"] == demand and item["currencyCodeB"] == 980:
+                buy = item.get("rateBuy") or item.get("rateCross", "")
+                sell = item.get("rateSell") or item.get("rateCross", "")
+                return f"{currency.upper()}/UAH: buy {buy}, sell {sell}"
+        return "Monobank: rate not found."
+        return "Monobank: rate not found."
+
+    # ------------------------------------------------------------------ bank balance
+    def _tool_money_on_card(self) -> str:
+        """Balances and limits on Monobank cards (requires monobank.api_token)."""
+        token = self.config.get("monobank.api_token") or ""
+        if not token:
+            return "Monobank token is not configured in config.json (monobank.api_token)."
+        try:
+            response = requests.get(
+                "https://api.monobank.ua/personal/client-info",
+                headers={"X-Token": token},
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:  # noqa: BLE001
+            return f"Monobank error: {type(exc).__name__}: {exc}"
+
+        currency_map = {
+            980: "UAH", 978: "EUR", 840: "USD", 826: "GBP",
+            124: "CAD", 985: "PLN", 156: "CNY", 398: "KZT",
+        }
+        accounts = []
+        for acc in data.get("accounts", []):
+            code = acc.get("currencyCode")
+            cur = currency_map.get(code, str(code))
+            bal = acc.get("balance", 0) / 100
+            limit = acc.get("creditLimit", 0) / 100
+            masks = acc.get("maskedPan") or []
+            if masks:
+                accounts.append(f"{masks[0]} {cur}: balance {bal:.2f}, limit {limit:.2f}")
+            else:
+                accounts.append(f"account {cur}: balance {bal:.2f}, limit {limit:.2f}")
+        jars = []
+        for jar in data.get("jars", []):
+            code = jar.get("currencyCode")
+            cur = currency_map.get(code, str(code))
+            bal = jar.get("balance", 0) / 100
+            goal = jar.get("goal", 0) / 100
+            jars.append(f"{jar.get('title', 'jar')} {cur}: {bal:.2f}/{goal:.2f}")
+        info = data.get("name") or ""
+        lines = [f"Monobank {info}:".strip()]
+        if accounts:
+            lines.extend(accounts)
+        for jar in jars:
+            lines.append(f"jar {jar}")
+        return " | ".join(lines)
+
     def _tool_volume(self, action: str, steps: int = 3) -> str:
         mapping = {"up": 0xAF, "down": 0xAE}
         if action in mapping:
