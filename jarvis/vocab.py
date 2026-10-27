@@ -1,4 +1,4 @@
-"""Пользовательский словарь: hotwords для Whisper + автообучение из успешных команд."""
+"""User vocabulary: Whisper hotwords plus learning from successful commands."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from .config import ROOT
 
 VOCAB_PATH = ROOT / "vocab.json"
 
-# Слова, которые не нужно учить (служебные, слишком короткие, числа)
+# Words that should not be learned (service words, too short, numbers)
 STOP_WORDS = {
     "и", "в", "на", "с", "по", "к", "у", "о", "а", "но", "или", "не", "да", "нет",
     "the", "a", "an", "to", "of", "in", "on", "at", "for", "is", "it",
@@ -32,13 +32,13 @@ STOP_WORDS = {
     "файл", "папка", "окно", "экран", "компьютер", "система",
 }
 
-# Индикаторы неуспешной команды — не учим слова из таких результатов
+# Indicators of a failed command - do not learn words from such results
 ERROR_INDICATORS = (
     "ошибка", "отмена", "отменил", "не найден", "не удалось", "не смог",
     "error", "cancelled", "not found", "failed", "мимо",
 )
 
-# Начальный словарь — часто используемые слова
+# Starter vocabulary - commonly used words
 DEFAULT_WORDS = [
     "Spotify", "Discord", "Steam", "Chrome", "Firefox", "Edge",
     "YouTube", "Telegram", "WhatsApp", "Zoom", "Teams", "Slack",
@@ -79,7 +79,7 @@ DEFAULT_CORRECTIONS = {
 
 
 class Vocabulary:
-    """Словарь hotwords для Whisper + автообучение из успешных команд."""
+    """Whisper hotword vocabulary plus learning from successful commands."""
 
     def __init__(
         self,
@@ -141,11 +141,11 @@ class Vocabulary:
 
     # ------------------------------------------------------------------ words
     def add_word(self, word: str) -> bool:
-        """Добавить слово в словарь вручную. Возвращает True, если добавлено."""
+        """Add a word to the vocabulary manually. Returns True if added."""
         word = word.strip()
         if not word or len(word) < 2 or not self.enabled:
             return False
-        # Проверяем без учёта регистра
+        # Case-insensitive check
         lower_variants = {w.lower() for w in self.words}
         if word.lower() in lower_variants:
             return False
@@ -155,10 +155,10 @@ class Vocabulary:
             return True
 
     def remove_word(self, word: str) -> bool:
-        """Удалить слово из словаря."""
+        """Remove a word from the vocabulary."""
         word = word.strip()
         with self._lock:
-            # Ищем без учёта регистра
+            # Case-insensitive search
             to_remove = None
             for w in self.words:
                 if w.lower() == word.lower():
@@ -171,7 +171,7 @@ class Vocabulary:
         return False
 
     def add_correction(self, wrong: str, correct: str) -> None:
-        """Добавить исправление: wrong → correct."""
+        """Add a correction: wrong -> correct."""
         wrong = wrong.strip().lower()
         correct = correct.strip()
         if wrong and correct and wrong != correct:
@@ -190,13 +190,13 @@ class Vocabulary:
 
     # ------------------------------------------------------------------ learning
     def learn(self, text: str, success: bool = True) -> None:
-        """Автообучение из команды.
+        """Learn from a command.
 
-        Слова попадают в словарь ТОЛЬКО если команда выполнилась корректно.
+        Words are added to the vocabulary ONLY if the command succeeded.
         """
         if not self.enabled or not success or not text:
             return
-        # Проверяем, не содержит ли результат признаков ошибки
+        # Check whether the result looks like an error
         lower = text.lower()
         if any(ind in lower for ind in ERROR_INDICATORS):
             return
@@ -211,7 +211,7 @@ class Vocabulary:
                     continue
                 display = word.capitalize() if word.isalpha() else word
                 self.learned[display] += 1
-                # Если слово встречается min_count+ раз — добавляем в постоянный словарь
+                # If the word appears min_count+ times, add it permanently
                 if self.learned[display] >= self.min_count and display not in self.words:
                     self.words.add(display)
                     changed = True
@@ -219,12 +219,12 @@ class Vocabulary:
                 self._save_unlocked()
 
     def observe(self, text: str, success: bool = True) -> None:
-        """Алиас для learn()."""
+        """Alias for learn()."""
         self.learn(text, success=success)
 
     # ------------------------------------------------------------------ hotwords
     def hotwords(self) -> str:
-        """Возвращает строку hotwords для whisper (ограниченная длина)."""
+        """Returns the hotword string for Whisper (length-limited)."""
         if not self.enabled:
             return ""
         with self._lock:
@@ -237,7 +237,7 @@ class Vocabulary:
 
     # ------------------------------------------------------------------ corrections
     def correct(self, text: str) -> str:
-        """Применяет исправления (ASR ошибки → правильные слова)."""
+        """Applies corrections (ASR mistakes -> correct words)."""
         if not text or not self.corrections:
             return text
         words = text.split()

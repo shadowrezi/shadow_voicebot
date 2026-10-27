@@ -1,4 +1,4 @@
-"""Точка входа: голосовой цикл, подтверждения и команды CLI."""
+"""Entry point: voice loop, confirmations, and CLI commands."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
 
 def init_console() -> None:
-    """Включает ANSI-цвета и UTF-8 в консоли Windows."""
+    """Enables ANSI colors and UTF-8 in the Windows console."""
     try:
         for stream in (sys.stdout, sys.stderr):
             stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
@@ -183,21 +183,21 @@ class Assistant:
 
     # ------------------------------------------------------------------ confirm
     def _confirm(self, prompt: str) -> bool:
-        """Спрашивает подтверждение голосом и слушает ответ."""
+        """Asks for voice confirmation and listens for the answer."""
         ru_prompt = prompt
         en_prompt = prompt  # prompt is already set by caller with _t()
         print(paint(f"🔊 {prompt}", "green"), flush=True)
         self.log("assistant", prompt)
-        self.speaker.say(f"{prompt} {'Скажи да или нет.' if self.tools.lang == 'ru' else 'Say yes or no.'}", lang=self.tools.lang, blocking=True)
+        self.speaker.say(f"{prompt} Say yes or no.", lang=self.tools.lang, blocking=True)
         time.sleep(0.25)
-        self.print_status("жду «да» или «нет» (8 секунд)" if self.tools.lang == "ru" else "waiting for 'yes' or 'no' (8 seconds)", "yellow")
+        self.print_status("waiting for 'yes' or 'no' (8 seconds)", "yellow")
         self._busy = True
         try:
             audio = self.mic.record_phrase(wait_timeout=8)
         finally:
             self._busy = False
         if audio is None:
-            self.print_status("не услышал ответ — отменяю" if self.tools.lang == "ru" else "didn't hear an answer — cancelling", "red")
+            self.print_status("didn't hear an answer - cancelling", "red")
             return False
         answer = normalize(self.asr.transcribe(audio, hotwords=self.vocab.hotwords()))
         self.vocab.learn(answer)
@@ -209,7 +209,7 @@ class Assistant:
 
     # ------------------------------------------------------------------ pipeline
     def handle_text(self, text: str) -> bool:
-        """Обрабатывает фразу. Возвращает True, если нужно выйти."""
+        """Processes a phrase. Returns True if the program should exit."""
         phrase = normalize(text)
         if not phrase:
             return False
@@ -223,14 +223,14 @@ class Assistant:
         require_wake = bool(self.config.get("require_wake_word", True))
         in_conversation = time.monotonic() < self._conversation_until
         if require_wake and not has_wake and not in_conversation:
-            self.print_status(f"мимо: {phrase}", "dim")
+            self.print_status(f"ignored: {phrase}", "dim")
             return False
 
         command = stripped if has_wake else phrase
         if not command:
             # Позвали по имени без команды — короткий отклик, остаёмся на связи.
             self._conversation_until = time.monotonic() + self._conversation_timeout
-            self.say("Слушаю." if lang == "ru" else "I'm listening.", lang=lang)
+            self.say("I'm listening.", lang=lang)
             return False
 
         # После команды по умолчанию прослушивание останавливается (авто-стоп).
@@ -243,21 +243,21 @@ class Assistant:
         try:
             local_result: Result | None = self.local.handle(command)
             if local_result is not None:
-                self.print_status(f"локально: {command}", "cyan")
+                self.print_status(f"local: {command}", "cyan")
                 # Учимся только если команда выполнилась успешно
                 if local_result.text and not any(
-                    ind in local_result.text.lower() for ind in ("ошибка", "отмена", "не найден", "не удалось", "error", "cancelled", "not found", "failed")
+                    ind in local_result.text.lower() for ind in ("error", "cancelled", "not found", "failed")
                 ):
                     self.vocab.learn(phrase, success=True)
                     self.asr.hotwords = self.vocab.hotwords()
                 self.say(local_result.text)
                 return local_result.exit
 
-            self.print_status(f"думаю: {command}", "magenta")
+            self.print_status(f"thinking: {command}", "magenta")
             started = time.monotonic()
             answer = self.llm.chat(command, on_tool=self._on_tool)
             elapsed = time.monotonic() - started
-            self.print_status(f"ответ за {elapsed:.1f} с", "dim")
+            self.print_status(f"answered in {elapsed:.1f} s", "dim")
             # Учимся из успешного ответа LLM
             self.vocab.learn(phrase, success=True)
             self.asr.hotwords = self.vocab.hotwords()
@@ -270,11 +270,11 @@ class Assistant:
 
     def _on_tool(self, name: str, arguments: dict[str, Any]) -> None:
         pretty = ", ".join(f"{k}={v}" for k, v in arguments.items())
-        self.print_status(f"инструмент: {name}({pretty})", "yellow")
+        self.print_status(f"tool: {name}({pretty})", "yellow")
         self.log("tool", f"{name} {arguments}")
 
     def _strip_wake(self, phrase: str) -> tuple[str, bool]:
-        """Ищет обращение по имени, терпимо к ошибкам распознавания."""
+        """Looks for the wake word, tolerant to recognition errors."""
         words = phrase.split()
         for word in self.config.get("wake_words", []):
             needle = normalize(str(word))
@@ -294,35 +294,35 @@ class Assistant:
 
     # ------------------------------------------------------------------ modes
     def check(self) -> int:
-        print(paint("Проверка окружения", "bold"))
+        print(paint("Environment check", "bold"))
         ok = True
 
         devices = list_input_devices()
         if devices:
             default = next((d for d in devices if d["default"]), devices[0])
-            self.print_status(f"микрофон: {default['name']} (idx {default['index']})", "green")
+            self.print_status(f"microphone: {default['name']} (idx {default['index']})", "green")
         else:
-            self.print_status("микрофон не найден", "red")
+            self.print_status("microphone not found", "red")
             ok = False
 
         if self.llm.available():
             models = self.llm.models()
-            self.print_status(f"Ollama: работает, моделей {len(models)}", "green")
+            self.print_status(f"Ollama: running, {len(models)} models", "green")
             if self.llm.has_model():
-                self.print_status(f"модель: {self.llm.model}", "green")
+                self.print_status(f"model: {self.llm.model}", "green")
             else:
-                self.print_status(f"модель {self.llm.model} не скачана", "red")
+                self.print_status(f"model {self.llm.model} not downloaded", "red")
                 ok = False
         else:
-            self.print_status("Ollama недоступна (запусти её из трея)", "red")
+            self.print_status("Ollama unavailable (start it from the tray)", "red")
             ok = False
 
-        self.print_status("загружаю модель распознавания…", "dim")
+        self.print_status("loading speech model...", "dim")
         try:
             self.asr.load()
-            self.print_status(f"распознавание: {self.asr.model_name}", "green")
+            self.print_status(f"speech recognition: {self.asr.model_name}", "green")
         except Exception as exc:  # noqa: BLE001
-            self.print_status(f"распознавание не работает: {exc}", "red")
+            self.print_status(f"speech recognition failed: {exc}", "red")
             ok = False
 
         return 0 if ok else 1
@@ -335,37 +335,37 @@ class Assistant:
 
     def calibrate(self, seconds: float = 4.0) -> int:
         self.mic.open()
-        self.print_status("тишина, замеряю шум…", "dim")
+        self.print_status("measuring background noise...", "dim")
         floor = self.mic.calibrate()
-        self.print_status(f"шум {floor:.0f}, порог {self.mic.threshold:.0f}", "cyan")
-        self.print_status("говори что-нибудь (для проверки уровня)", "dim")
+        self.print_status(f"noise {floor:.0f}, threshold {self.mic.threshold:.0f}", "cyan")
+        self.print_status("say something (to check the level)", "dim")
         end = time.monotonic() + seconds
         while time.monotonic() < end:
             audio = self.mic.record_phrase(wait_timeout=1)
             if audio is None:
                 continue
             peak = float(abs(audio).max())
-            self.print_status(f"фраза {len(audio) / 16000:.1f} с, пик {peak:.0f}", "green")
+            self.print_status(f"phrase {len(audio) / 16000:.1f} s, peak {peak:.0f}", "green")
         self.mic.close()
         return 0
 
     def run(self) -> int:
         print(paint(BANNER, "cyan"))
-        print(paint(f"  {self.config.get('assistant_name')} · локальная модель "
-                    f"{self.config.get('llm.model')} · whisper {self.config.get('asr.model')}", "dim"))
-        print(paint("  PgUp — активация. Или говори напрямую. «выключись» / «shut down» — выход.\n", "dim"))
+        print(paint(f"  {self.config.get('assistant_name')} - local model "
+                    f"{self.config.get('llm.model')} - whisper {self.config.get('asr.model')}", "dim"))
+        print(paint("  PgUp - activate. Or speak directly. 'shut down' / 'exit' - quit.\n", "dim"))
 
         self.mic.open()
-        self.print_status("калибрую микрофон…", "dim")
+        self.print_status("calibrating microphone...", "dim")
         floor = self.mic.calibrate()
-        self.print_status(f"шум {floor:.0f}, порог {self.mic.threshold:.0f}", "dim")
+        self.print_status(f"noise {floor:.0f}, threshold {self.mic.threshold:.0f}", "dim")
         self.asr.load()
         hot = self.vocab.hotwords()
         if hot:
-            self.print_status(f"подсказываю распознавателю {len(hot.split())} частых слов", "dim")
+            self.print_status(f"feeding recognizer {len(hot.split())} frequent words", "dim")
         threading.Thread(target=self.llm.warmup, daemon=True).start()
-        self.print_status("прогреваю нейросеть…", "dim")
-        self.print_status("готов. Слушаю микрофон.", "green")
+        self.print_status("warming up the neural network...", "dim")
+        self.print_status("ready. Listening to microphone.", "green")
 
         # Активация по PgUp (через pynput keyboard.Listener)
         self._pgup_activated = threading.Event()
@@ -388,7 +388,7 @@ class Assistant:
                     in_conversation = time.monotonic() < self._conversation_until
                     # Если не в разговоре — ждём PgUp или wake word
                     if not in_conversation:
-                        self.print_status("ожидаю PgUp или wake word…", "dim")
+                        self.print_status("waiting for PgUp or wake word...", "dim")
                         # Ждём PgUp или wake word
                         while not self._stop.is_set():
                             if self._pgup_activated.is_set():
@@ -401,7 +401,7 @@ class Assistant:
                             time.sleep(0.1)
                         if self._stop.is_set():
                             break
-                        self.print_status("слушаю…", "green")
+                        self.print_status("listening...", "green")
                         time.sleep(0.2)
 
                     wait = None if not in_conversation else self._conversation_timeout
@@ -409,7 +409,7 @@ class Assistant:
                     if audio is None or self._stop.is_set():
                         if in_conversation:
                             self._conversation_until = 0.0
-                            self.print_status("режим разговора завершён", "dim")
+                            self.print_status("conversation mode ended", "dim")
                         continue
                     heard = self.asr.transcribe(audio, hotwords=self.vocab.hotwords())
                     # Применяем исправления из словаря (ASR ошибки → правильные слова)
@@ -420,12 +420,12 @@ class Assistant:
                     if self.handle_text(heard):
                         break
                 except Exception as exc:  # noqa: BLE001 — одна фраза не должна убить ассистента
-                    self.print_status(f"ошибка фразы: {type(exc).__name__}: {exc}", "red")
+                    self.print_status(f"phrase error: {type(exc).__name__}: {exc}", "red")
                     self.log("error", f"phrase: {type(exc).__name__}: {exc}")
         except KeyboardInterrupt:
             print()
         finally:
-            self.print_status("останавливаюсь…", "dim")
+            self.print_status("stopping...", "dim")
             if self._pgup_listener is not None:
                 self._pgup_listener.stop()
             self.mic.close()
@@ -435,15 +435,15 @@ class Assistant:
 
 
 def autostart_shortcut(enable: bool) -> int:
-    """Добавляет или убирает ассистента из автозагрузки Windows."""
+    """Adds or removes the assistant from Windows startup."""
     startup = Path(os.environ["APPDATA"]) / "Microsoft/Windows/Start Menu/Programs/Startup"
     shortcut = startup / "Jarvis.lnk"
     if not enable:
         if shortcut.exists():
             shortcut.unlink()
-            print(paint(f"удалено: {shortcut}", "green"))
+            print(paint(f"removed: {shortcut}", "green"))
         else:
-            print(paint("автозагрузка и так выключена", "dim"))
+            print(paint("autostart already disabled", "dim"))
         return 0
 
     target = Path(__file__).resolve().parent.parent / "jarvis.bat"
@@ -453,38 +453,38 @@ def autostart_shortcut(enable: bool) -> int:
     ) % (shortcut, target, target.parent)
     subprocess.run(["powershell", "-NoProfile", "-Command", script], check=False)
     if shortcut.exists():
-        print(paint(f"включено: {shortcut}", "green"))
+        print(paint(f"enabled: {shortcut}", "green"))
         return 0
-    print(paint("не удалось создать ярлык", "red"))
+    print(paint("failed to create shortcut", "red"))
     return 1
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="jarvis", description="Голосовой ассистент с локальной нейросетью."
+        prog="jarvis", description="Voice assistant with a local neural network."
     )
-    parser.add_argument("--text", help="обработать текстовую команду без микрофона")
-    parser.add_argument("--once", action="store_true", help="выйти после одной команды")
-    parser.add_argument("--check", action="store_true", help="проверить окружение и выйти")
-    parser.add_argument("--calibrate", action="store_true", help="проверить микрофон и уровень сигнала")
-    parser.add_argument("--list-devices", action="store_true", help="показать устройства ввода")
-    parser.add_argument("--device", help="индекс или часть имени микрофона")
-    parser.add_argument("--model", help="модель Ollama, например qwen3:8b")
-    parser.add_argument("--asr-model", help="модель whisper: tiny/base/small/medium")
-    parser.add_argument("--no-tts", action="store_true", help="без озвучки")
-    parser.add_argument("--no-wake", action="store_true", help="слушать без обращения по имени")
-    parser.add_argument("--autostart", action="store_true", help="добавить в автозагрузку Windows")
-    parser.add_argument("--no-autostart", action="store_true", help="убрать из автозагрузки")
-    parser.add_argument("--vocab", action="store_true", help="показать выученные слова-подсказки")
-    parser.add_argument("--remember", action="append", metavar="СЛОВО",
-                        help="слово, которое всегда нужно слышать (можно несколько раз)")
-    parser.add_argument("--forget", action="append", metavar="СЛОВО",
-                        help="забыть слово из словаря (можно несколько раз)")
+    parser.add_argument("--text", help="process a text command without microphone")
+    parser.add_argument("--once", action="store_true", help="exit after one command")
+    parser.add_argument("--check", action="store_true", help="check the environment and exit")
+    parser.add_argument("--calibrate", action="store_true", help="check microphone and signal level")
+    parser.add_argument("--list-devices", action="store_true", help="show input devices")
+    parser.add_argument("--device", help="microphone index or name part")
+    parser.add_argument("--model", help="Ollama model, e.g. qwen3:8b")
+    parser.add_argument("--asr-model", help="whisper model: tiny/base/small/medium")
+    parser.add_argument("--no-tts", action="store_true", help="disable voice output")
+    parser.add_argument("--no-wake", action="store_true", help="listen without wake word")
+    parser.add_argument("--autostart", action="store_true", help="add to Windows startup")
+    parser.add_argument("--no-autostart", action="store_true", help="remove from startup")
+    parser.add_argument("--vocab", action="store_true", help="show learned hint words")
+    parser.add_argument("--remember", action="append", metavar="WORD",
+                        help="word to always recognize (can be repeated)")
+    parser.add_argument("--forget", action="append", metavar="WORD",
+                        help="forget a word from the vocabulary (can be repeated)")
     return parser
 
 
 def manage_vocab(args: argparse.Namespace) -> int:
-    """Просмотр и правка словаря частых слов без запуска ассистента."""
+    """View and edit the frequent-word vocabulary without running the assistant."""
     config = Config()
     asr_cfg = config.section("asr")
     vocab = Vocabulary(
@@ -493,23 +493,23 @@ def manage_vocab(args: argparse.Namespace) -> int:
     )
     for word in args.remember or []:
         vocab.remember(word)
-        print(paint(f"запомнил: {word}", "green"))
+        print(paint(f"remembered: {word}", "green"))
     for word in args.forget or []:
         if vocab.forget(word):
-            print(paint(f"забыл: {word}", "green"))
+            print(paint(f"forgot: {word}", "green"))
         else:
-            print(paint(f"в словаре не было: {word}", "dim"))
+            print(paint(f"not in vocabulary: {word}", "dim"))
     if args.vocab:
         pinned = vocab.pinned
         if pinned:
-            print(paint("закреплено: " + ", ".join(pinned), "cyan"))
+            print(paint("pinned: " + ", ".join(pinned), "cyan"))
         top = vocab.top(40)
         if top:
-            print(paint("выучено (слово × раз):", "bold"))
+            print(paint("learned (word x count):", "bold"))
             for word, count in top:
                 print(f"  {word} ×{count}")
         elif not pinned:
-            print(paint("словарь пуст — ассистент ещё ничего не выучил.", "dim"))
+            print(paint("vocabulary is empty - assistant has not learned anything yet.", "dim"))
     return 0
 
 

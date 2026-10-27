@@ -1,4 +1,4 @@
-"""Горячая клавиша активации через Windows API RegisterHotKey."""
+"""Activation hotkey through the Windows API RegisterHotKey."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Callable
 
 
 class HotkeyActivator:
-    """Слушает Ctrl+Alt+J через Windows API RegisterHotKey."""
+    """Listens for Ctrl+Alt+J through the Windows API RegisterHotKey."""
 
     def __init__(self, on_activate: Callable[[], None]) -> None:
         self.on_activate = on_activate
@@ -36,7 +36,7 @@ class HotkeyActivator:
         MOD_NOREPEAT = 0x4000
         VK_J = 0x4A
 
-        # Создаём скрытое окно для получения сообщений
+        # Create a hidden window to receive messages
         class WNDCLASS(ctypes.Structure):
             _fields_ = [
                 ("style", ctypes.c_uint),

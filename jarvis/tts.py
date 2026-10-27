@@ -1,4 +1,4 @@
-"""Озвучка ответов: нейроголос Edge TTS, оффлайн-фолбэк на SAPI."""
+"""Voice output: Edge TTS neural voice, offline fallback to SAPI."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import miniaudio
 
 
 def clean_for_speech(text: str) -> str:
-    """Убирает markdown и лишние символы, чтобы голос не читал мусор."""
+    """Removes markdown and extra characters so the voice does not read junk."""
     text = re.sub(r"```.*?```", " ", text, flags=re.DOTALL)
     text = re.sub(r"[*_#`>~|]", " ", text)
     text = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", text)
@@ -24,7 +24,7 @@ def clean_for_speech(text: str) -> str:
 
 
 class Speaker:
-    """Очередь озвучки: не даёт ответам перекрывать друг друга."""
+    """Speech queue: prevents answers from overlapping."""
 
     def __init__(
         self,
@@ -67,7 +67,7 @@ class Speaker:
         self._thread.join(timeout=10)
 
     def wait(self, timeout: float = 30.0) -> None:
-        """Ждёт, пока очередь озвучки опустеет (чтобы не слушать самих себя)."""
+        """Waits until the speech queue is empty (so we do not hear ourselves)."""
         end = time.monotonic() + timeout
         while self._queue.unfinished_tasks and time.monotonic() < end:
             time.sleep(0.05)
@@ -81,8 +81,8 @@ class Speaker:
                     return
                 text, lang = item
                 self._speak(text, lang)
-            except Exception as exc:  # noqa: BLE001 — озвучка не должна ронять ассистента
-                print(f"[tts] ошибка: {exc}")
+            except Exception as exc:  # noqa: BLE001 - speech must not crash the assistant
+                print(f"[tts] error: {exc}")
             finally:
                 self._queue.task_done()
 
@@ -93,8 +93,8 @@ class Speaker:
             try:
                 self._play(path)
                 return
-            except Exception as exc:  # noqa: BLE001 — битый кэш/декодер не должен ронять озвучку
-                print(f"[tts] не удалось проиграть mp3 ({exc}), пробую SAPI")
+            except Exception as exc:  # noqa: BLE001 - bad cache/decoder must not crash speech
+                print(f"[tts] could not play mp3 ({exc}), trying SAPI")
                 try:
                     path.unlink(missing_ok=True)
                 except OSError:
@@ -107,7 +107,7 @@ class Speaker:
         return self.cache_dir / f"{digest}.mp3"
 
     def _edge_mp3(self, text: str, voice: str) -> Path | None:
-        """Синтез через Edge TTS с кэшем. None — если сети/сервиса нет."""
+        """Synthesis through Edge TTS with cache. None if network/service is unavailable."""
         cached = self._cache_path(text, voice)
         if cached.exists() and cached.stat().st_size > 512:
             return cached
@@ -126,7 +126,7 @@ class Speaker:
             if cached.exists() and cached.stat().st_size > 512:
                 return cached
         except Exception as exc:  # noqa: BLE001
-            print(f"[tts] Edge недоступен ({type(exc).__name__}), перехожу на SAPI")
+            print(f"[tts] Edge unavailable ({type(exc).__name__}), falling back to SAPI")
             self._offline = True
         return None
 
@@ -150,7 +150,7 @@ class Speaker:
 
     # ------------------------------------------------------------------ sapi
     def _sapi_speak(self, text: str, lang: str = "ru") -> None:
-        """Оффлайн-фолбэк: системный SAPI."""
+        """Offline fallback: system SAPI."""
         safe = text.replace("'", "''")
         culture = "ru-RU" if lang == "ru" else "en-US"
         script = (
@@ -168,4 +168,4 @@ class Speaker:
                 timeout=120,
             )
         except Exception as exc:  # noqa: BLE001
-            print(f"[tts] SAPI не сработал: {exc}")
+            print(f"[tts] SAPI failed: {exc}")

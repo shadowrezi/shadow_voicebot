@@ -5,7 +5,7 @@ cd /d "%~dp0"
 
 setlocal enabledelayedexpansion
 
-:: Находим интерпретатор Python
+:: Find Python
 set "PY_EXE="
 where python >nul 2>&1
 if not errorlevel 1 set "PY_EXE=python"
@@ -15,20 +15,20 @@ if not defined PY_EXE (
 )
 
 if not defined PY_EXE (
-    echo [error] не найден python. Установи Python 3.11+ и добавь в PATH.
+    echo [error] Python not found. Install Python 3.11+ and add it to PATH.
     pause
     exit /b 1
 )
 
 if not exist ".venv\Scripts\python.exe" (
-    echo [setup] создаю виртуальное окружение...
+    echo [setup] Creating virtual environment...
     "%PY_EXE%" -m venv .venv
     if errorlevel 1 (
-        echo [error] не удалось создать виртуальное окружение.
+        echo [error] Failed to create virtual environment.
         pause
         exit /b 1
     )
-    echo [setup] устанавливаю зависимости...
+    echo [setup] Installing dependencies...
     ".venv\Scripts\python.exe" -m pip install --upgrade pip
     ".venv\Scripts\python.exe" -m pip install -r requirements.txt
 )

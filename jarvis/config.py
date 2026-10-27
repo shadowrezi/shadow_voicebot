@@ -1,4 +1,4 @@
-﻿"""Конфигурация ассистента: значения по умолчанию + config.json."""
+﻿"""Assistant configuration: defaults plus config.json."""
 
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ DEFAULTS: dict[str, Any] = {
 
 
 def _deep_merge(base: dict, override: dict) -> dict:
-    """Рекурсивно накладывает override на base."""
+    """Recursively overlays override onto base."""
     result = copy.deepcopy(base)
     for key, value in override.items():
         if isinstance(value, dict) and isinstance(result.get(key), dict):
@@ -77,7 +77,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 
 class Config:
-    """Доступ к настройкам через атрибуты и пути."""
+    """Access to settings via attributes and dotted paths."""
 
     def __init__(self, path: Path | None = None) -> None:
         self.path = path or CONFIG_PATH
@@ -87,7 +87,7 @@ class Config:
                 loaded = json.loads(self.path.read_text(encoding="utf-8-sig"))
                 self.data = _deep_merge(self.data, loaded)
             except (OSError, json.JSONDecodeError) as exc:
-                print(f"[config] не удалось прочитать {self.path}: {exc}")
+                print(f"[config] could not read {self.path}: {exc}")
         else:
             self.save()
 

@@ -1,4 +1,4 @@
-"""Быстрые локальные команды: работают мгновенно и без нейросети."""
+"""Fast local commands: instant, no neural network needed."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def normalize(text: str) -> str:
 class Result:
     text: str
     exit: bool = False
-    source: str = "локально"
+    source: str = "local"
 
 
 class LocalCommands:
@@ -177,14 +177,14 @@ class LocalCommands:
         # Точное совпадение: «exit spotify» не должно трактоваться как выход
         # из ассистента — это команда закрытия приложения.
         if phrase in exit_words:
-            text = "Выключаюсь. Обращайся, если что." if self.lang == "ru" else "Shutting down. Call me if you need anything."
+            text = "Shutting down. Call me if you need anything."
             return Result(text, exit=True)
 
         # --- повторить последний ответ ---
         if phrase in ("повтори", "повтори ещё раз", "ещё раз", "repeat", "again", "repeat that", "say again"):
             if self._last_result:
                 return Result(self._last_result)
-            return Result("Нечего повторять." if self.lang == "ru" else "Nothing to repeat.")
+            return Result("Nothing to repeat.")
 
         rules = self.ru_rules if self.lang == "ru" else self.en_rules
         for pattern, action in rules:
@@ -264,10 +264,10 @@ class LocalCommands:
             if hasattr(self.tools, "vocab"):
                 result = self.tools.vocab.add_word(word)
                 if result:
-                    msg = f"Запомнил слово «{word}»."
+                    msg = f"Remembered word '{word}'."
                     self._last_result = msg
                     return Result(msg)
-                msg = f"Слово «{word}» уже в словаре."
+                msg = f"Word '{word}' is already in the vocabulary."
                 self._last_result = msg
                 return Result(msg)
 
@@ -290,10 +290,10 @@ class LocalCommands:
             if hasattr(self.tools, "vocab"):
                 result = self.tools.vocab.remove_word(word)
                 if result:
-                    msg = f"Удалил слово «{word}» из словаря."
+                    msg = f"Removed word '{word}' from the vocabulary."
                     self._last_result = msg
                     return Result(msg)
-                msg = f"Слова «{word}» нет в словаре."
+                msg = f"Word '{word}' is not in the vocabulary."
                 self._last_result = msg
                 return Result(msg)
 
@@ -314,7 +314,7 @@ class LocalCommands:
         if vocab_info_ru:
             if hasattr(self.tools, "vocab"):
                 words = self.tools.vocab.list_words()
-                msg = f"В словаре {len(words)} слов: {', '.join(words[:20])}{'...' if len(words) > 20 else ''}."
+                msg = f"Vocabulary has {len(words)} words: {', '.join(words[:20])}{'...' if len(words) > 20 else ''}."
                 self._last_result = msg
                 return Result(msg)
 
@@ -338,10 +338,10 @@ class LocalCommands:
 
 
 HELP_TEXT_RU = (
-    "Умею открывать приложения и сайты («открой хром»), закрывать приложения "
-    "(«закрой спотифай», «exit discord», «close chrome»), управлять громкостью и плеером, делать скриншоты, "
-    "узнавать погоду, блокировать компьютер, искать в интернете, читать и писать файлы, "
-    "выполнять команды PowerShell и отвечать на вопросы. Всё остальное — через локальную нейросеть."
+    "I can open apps and websites ('open chrome'), close apps "
+    "('close spotify', 'exit discord', 'close chrome'), control volume and media, take screenshots, "
+    "check weather, lock the PC, search the web, read and write files, "
+    "run PowerShell commands and answer questions. Everything else goes through the local neural network."
 )
 
 HELP_TEXT_EN = (

@@ -1,4 +1,4 @@
-"""Распознавание речи локально через faster-whisper (без интернета и лимитов)."""
+"""Local speech recognition through faster-whisper (no internet, no limits)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import numpy as np
 
 
 def _enable_cuda_dlls() -> None:
-    """Добавляет в PATH библиотеки cuBLAS/cuDNN из venv (колёса nvidia-*)."""
+    """Adds cuBLAS/cuDNN libraries from the venv (nvidia-* wheels) to PATH."""
     folders: list[str] = []
     for base in site.getsitepackages():
         nvidia = Path(base) / "nvidia"
@@ -23,13 +23,13 @@ def _enable_cuda_dlls() -> None:
     os.environ["PATH"] = os.pathsep.join(folders + [os.environ.get("PATH", "")])
     for folder in folders:
         try:
-            os.add_dll_directory(folder)  # только Windows
+            os.add_dll_directory(folder)  # Windows only
         except (AttributeError, OSError):
             pass
 
 
 class Transcriber:
-    """Ленивая обёртка над faster-whisper."""
+    """Lazy wrapper around faster-whisper."""
 
     def __init__(
         self,
@@ -70,29 +70,29 @@ class Transcriber:
         last_error: Exception | None = None
         for device, compute_type in attempts:
             try:
-                print(f"[asr] загружаю модель '{self.model_name}' ({device}/{compute_type})…")
+                print(f"[asr] loading model '{self.model_name}' ({device}/{compute_type})...")
                 self._model = WhisperModel(
                     self.model_name,
                     device=device,
                     compute_type=compute_type,
                 )
-                print(f"[asr] модель готова ({device}/{compute_type})")
+                print(f"[asr] model ready ({device}/{compute_type})")
                 return
-            except Exception as exc:  # noqa: BLE001 — нужен любой сбой для фолбэка
+            except Exception as exc:  # noqa: BLE001 - any failure is enough for fallback
                 last_error = exc
-                print(f"[asr] не вышло с {device}/{compute_type}: {exc}")
-        raise RuntimeError(f"Не удалось загрузить модель распознавания: {last_error}")
+                print(f"[asr] failed with {device}/{compute_type}: {exc}")
+        raise RuntimeError(f"Could not load speech model: {last_error}")
 
     # ------------------------------------------------------------------ run
     def transcribe(self, audio: np.ndarray, hotwords: str | None = None) -> str:
-        """audio: int16 mono 16 кГц. hotwords: слова-подсказки для модели."""
+        """audio: int16 mono 16 kHz. hotwords: hint words for the model."""
         self.load()
         assert self._model is not None
         samples = audio.astype(np.float32) / 32768.0
         try:
             return self._run(samples, hotwords)
-        except Exception as exc:  # noqa: BLE001 — чаще всего отсутствует CUDA
-            print(f"[asr] сбой на {self.device}: {exc}. Перехожу на CPU.")
+        except Exception as exc:  # noqa: BLE001 - usually missing CUDA
+            print(f"[asr] failure on {self.device}: {exc}. Falling back to CPU.")
             self._fallback_to_cpu()
             return self._run(samples, hotwords)
 
@@ -118,4 +118,4 @@ class Transcriber:
         self._model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
         self.device = "cpu"
         self.compute_type = "int8"
-        print("[asr] модель перезагружена на CPU/int8")
+        print("[asr] model reloaded on CPU/int8")

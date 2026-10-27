@@ -1,4 +1,4 @@
-"""Захват микрофона, wake word (openWakeWord) и определение речевой активности (Silero VAD)."""
+"""Microphone capture, wake word (openWakeWord) and voice activity detection (Silero VAD)."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ import sounddevice as sd
 
 
 def list_input_devices() -> list[dict[str, Any]]:
-    """Возвращает список устройств ввода с индексами."""
+    """Returns the list of input devices with indices."""
     result: list[dict[str, Any]] = []
     for index, info in enumerate(sd.query_devices()):
         if info["max_input_channels"] > 0:
@@ -32,10 +32,10 @@ def list_input_devices() -> list[dict[str, Any]]:
 
 
 class Mic:
-    """Поток с микрофона.
+    """Microphone stream.
 
-    Поддерживает wake word (openWakeWord «hey_jarvis») и запись фраз (Silero VAD).
-    Активация по горячей клавише (Ctrl+Alt+J) через _activation_event.
+    Supports wake word (openWakeWord "hey_jarvis") and phrase recording (Silero VAD).
+    Activation via hotkey (Ctrl+Alt+J) through _activation_event.
     """
 
     def __init__(
@@ -100,7 +100,7 @@ class Mic:
 
     # ------------------------------------------------------------------ helpers
     def _read_block(self) -> np.ndarray:
-        assert self._stream is not None, "Микрофон не открыт"
+        assert self._stream is not None, "Microphone is not open"
         data, _overflowed = self._stream.read(int(self.sample_rate * self.block_ms / 1000))
         return np.frombuffer(data, dtype=np.int16)
 
@@ -119,7 +119,7 @@ class Mic:
         return self.min_rms
 
     def calibrate(self, seconds: float = 1.2) -> float:
-        """Замеряет фоновый шум и выставляет порог срабатывания."""
+        """Measures background noise and sets the trigger threshold."""
         self.open()
         samples: list[float] = []
         blocks = max(1, int(seconds * 1000 / self.block_ms))
@@ -131,13 +131,13 @@ class Mic:
 
     # ------------------------------------------------------------------ activation by hotkey
     def activate(self) -> None:
-        """Помечает, что пользователь нажал горячую клавишу активации."""
+        """Marks that the user pressed the activation hotkey."""
         self._activation_event.set()
 
     def wait_for_activation(self, timeout: float | None = None) -> bool:
-        """Блокирует поток до нажатия горячей клавиши активации.
+        """Blocks the thread until the activation hotkey is pressed.
 
-        Возвращает True, если активация произошла, False — если истек timeout.
+        Returns True if activation happened, False if the timeout expired.
         """
         got = self._activation_event.wait(timeout)
         if got:
@@ -146,7 +146,7 @@ class Mic:
 
     # ------------------------------------------------------------------ wake word
     def _load_wake_model(self) -> None:
-        """Ленивая загрузка openWakeWord «hey_jarvis»."""
+        """Lazy load of openWakeWord "hey_jarvis"."""
         if self._wake_model is not None or not self.wake_word_enabled:
             return
         try:
@@ -157,12 +157,12 @@ class Mic:
             self._wake_model = None
 
     def wait_for_wake_word(self, timeout: float | None = None) -> bool:
-        """Непрерывно слушает микрофон и ждёт wake word или активации по клавише.
+        """Continuously listens to the microphone and waits for the wake word or hotkey.
 
-        Возвращает True, если активирован.
+        Returns True if activated.
         """
         if not self.wake_word_enabled:
-            # Wake word отключён — ждём горячую клавишу.
+            # Wake word disabled - wait for the hotkey.
             deadline = None if timeout is None else time.monotonic() + timeout
             while True:
                 if self._activation_event is not None and self._activation_event.is_set():
@@ -181,10 +181,10 @@ class Mic:
         _speech_start: float | None = None
 
         deadline = None if timeout is None else time.monotonic() + timeout
-        frame_size = 1280  # 80 мс при 16 кГц
+        frame_size = 1280  # 80 ms at 16 kHz
 
         while True:
-            # Проверяем событие активации (горячая клавиша).
+            # Check the activation event (hotkey).
             if self._activation_event is not None and self._activation_event.is_set():
                 self._activation_event.clear()
                 return True
@@ -192,7 +192,7 @@ class Mic:
             if deadline is not None and time.monotonic() > deadline:
                 return False
 
-            # Читаем блоки до накопления 1280 сэмплов
+            # Read blocks until 1280 samples are collected
             frames: list[np.ndarray] = []
             collected = 0
             while collected < frame_size:
@@ -204,7 +204,7 @@ class Mic:
             if len(audio) > frame_size:
                 audio = audio[:frame_size]
 
-            # 1. openWakeWord (hey jarvis) — низкий порог для надёжности
+            # 1. openWakeWord (hey jarvis) - low threshold for reliability
             if self._wake_model is not None:
                 try:
                     prediction = self._wake_model.predict(audio)
@@ -214,7 +214,7 @@ class Mic:
                 except Exception:  # noqa: BLE001
                     pass
 
-            # 2. ASR-проверка для shadow/шедоу/джарвис
+            # 2. ASR check for shadow/шедоу/джарвис
             asr_buffer.append(audio)
             now = time.monotonic()
             if now - last_asr_check >= asr_check_interval:
@@ -222,7 +222,7 @@ class Mic:
                 try:
                     buf_audio = np.concatenate(asr_buffer)
                     if len(buf_audio) >= self.sample_rate * 0.5:
-                        # Ленивая инициализация ASR
+                        # Lazy ASR init
                         if self._asr_for_wake is None:
                             from jarvis.asr import Transcriber
 
@@ -234,7 +234,7 @@ class Mic:
                         text_lower = text.lower()
                         if text_lower.strip():
                             print(f"[wake] ASR: {text_lower!r}", flush=True)
-                        # Проверяем на wake word variants
+                        # Check wake word variants
                         wake_variants = [
                             "shadow", "шедоу", "шэдоу", "шадоу",
                             "jardis", "jorvis", "jarvis", "jarvix", "jarvizz",
@@ -244,21 +244,21 @@ class Mic:
                         for variant in wake_variants:
                             if variant in text_lower:
                                 return True
-                        # Fuzzy check: любое слово с ratio >= 0.4
+                        # Fuzzy check: any word with ratio >= 0.4
                         import difflib
 
                         for word in text_lower.split():
                             for variant in wake_variants:
                                 if difflib.SequenceMatcher(None, word, variant).ratio() >= 0.4:
                                     return True
-                        # Fallback: если обнаружена любая речь за 1+ сек — тоже срабатываем
+                        # Fallback: if any speech is detected for 1+ sec, trigger too
                         if len(buf_audio) >= self.sample_rate * 1.0 and len(text_lower.strip()) > 0:
                             return True
                     asr_buffer.clear()
                 except Exception:  # noqa: BLE001
                     asr_buffer.clear()
 
-            # 3. Fallback: если речь обнаружена Silero VAD более 1 сек — активируем
+            # 3. Fallback: if Silero VAD detects speech for more than 1 sec, activate
             if self._has_speech(audio):
                 if self._speech_start is None:
                     self._speech_start = time.monotonic()
@@ -269,7 +269,7 @@ class Mic:
 
     # ------------------------------------------------------------------ VAD
     def _load_vad(self) -> None:
-        """Ленивая загрузка Silero VAD."""
+        """Lazy load of Silero VAD."""
         if self._vad_model is not None:
             return
         try:
@@ -282,7 +282,7 @@ class Mic:
             self._vad_get_speech_timestamps = None
 
     def _has_speech(self, audio: np.ndarray) -> bool:
-        """Возвращает True, если в фрагменте есть речь (по Silero VAD)."""
+        """Returns True if the fragment contains speech (Silero VAD)."""
         self._load_vad()
         if self._vad_model is None or self._vad_get_speech_timestamps is None:
             return self._rms(audio) >= self.min_rms
@@ -301,9 +301,9 @@ class Mic:
 
     # ------------------------------------------------------------------ record
     def record_phrase(self, wait_timeout: float | None = None) -> np.ndarray | None:
-        """Ждёт речь и возвращает её как int16-массив.
+        """Waits for speech and returns it as an int16 array.
 
-        wait_timeout: сколько секунд ждать начала речи (None — бесконечно).
+        wait_timeout: seconds to wait for speech to start (None - forever).
         """
         self.open()
         pre_roll: collections.deque[np.ndarray] = collections.deque(
@@ -343,10 +343,10 @@ class Mic:
 
         if started_at is None:
             return None
-        # Отрезаем хвост тишины, оставляя немного запаса.
+        # Trim trailing silence, leaving a small margin.
         if quiet_run > 0 and len(chunks) > quiet_run:
             chunks = chunks[: len(chunks) - max(0, quiet_run - 2)]
         audio = np.concatenate(chunks)
-        if audio.size < self.sample_rate * 0.12:  # короче 120 мс — мусор
+        if audio.size < self.sample_rate * 0.12:  # shorter than 120 ms - junk
             return None
         return audio

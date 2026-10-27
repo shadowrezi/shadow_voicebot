@@ -186,7 +186,7 @@ def _vk(code: int) -> None:
 
 
 class Tools:
-    """Набор действий над компьютером, доступных нейросети по имени."""
+    """PC actions available to the model by name."""
 
     def __init__(
         self,
@@ -205,8 +205,8 @@ class Tools:
         self.audit_path.parent.mkdir(parents=True, exist_ok=True)
 
     def _t(self, ru: str, en: str) -> str:
-        """Вернуть строку на текущем языке инструментов."""
-        return en if self.lang == "en" else ru
+        """Return the English string."""
+        return en
 
     # ------------------------------------------------------------------ infra
     def _audit(self, tool: str, args: dict[str, Any], status: str, result: str) -> None:
@@ -226,14 +226,14 @@ class Tools:
             pass
 
     def _ask(self, prompt: str) -> bool:
-        self.on_event(f"подтверждение: {prompt}")
+        self.on_event(f"confirmation: {prompt}")
         return bool(self.confirm(prompt))
 
     @staticmethod
     def _truncate(text: str, limit: int = 4000) -> str:
         if len(text) <= limit:
             return text
-        return text[:limit] + f"\n…обрезано ({len(text)} символов)"
+        return text[:limit] + f"\n...truncated ({len(text)} chars)"
 
     # ------------------------------------------------------------------ schemas
     def schemas(self) -> list[dict[str, Any]]:
@@ -304,17 +304,17 @@ class Tools:
     def call(self, name: str, arguments: dict[str, Any]) -> str:
         handler = getattr(self, f"_tool_{name}", None)
         if handler is None:
-            return f"Ошибка: неизвестный инструмент '{name}'."
+            return f"Error: unknown tool '{name}'."
         try:
             result = handler(**arguments)
             self._audit(name, arguments, "ok", str(result))
             return result
         except TypeError as exc:
             self._audit(name, arguments, "bad_args", str(exc))
-            return f"Ошибка аргументов для {name}: {exc}"
-        except Exception as exc:  # noqa: BLE001 — инструмент не должен ронять цикл
+            return f"Bad arguments for {name}: {exc}"
+        except Exception as exc:  # noqa: BLE001 - a tool must not crash the loop
             self._audit(name, arguments, "error", f"{type(exc).__name__}: {exc}")
-            return f"Ошибка выполнения {name}: {type(exc).__name__}: {exc}"
+            return f"Error running {name}: {type(exc).__name__}: {exc}"
 
     # ------------------------------------------------------------------ apps
     def _tool_open_app(self, name: str) -> str:

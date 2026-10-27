@@ -1,217 +1,173 @@
-﻿# Джарвис — голосовое управление ПК
+﻿# Jarvis — PC Voice Control
 
-Локальный голосовой ассистент для Windows: слушает микрофон, распознаёт речь **на этом же компьютере**, думает **локальной нейросетью** (Ollama) и умеет реально управлять системой. Без API-ключей, подписок и лимитов.
+Local voice assistant for Windows: listens to the microphone, recognizes speech **on this machine**, thinks with a **local neural network** (Ollama), and can actually control the system. No API keys, subscriptions, or limits.
 
+```text
+🎤 Jarvis, open the browser and take a screenshot
+🔊 Opened Chrome, screenshot saved to Pictures\Jarvis.
 ```
-🎤 Джарвис, открой браузер и сделай скриншот
-🔊 Открыл Chrome, скриншот сохранён в Pictures\Jarvis.
-```
 
-## Что внутри
+## What's inside
 
-| Слой | Технология | Работает |
+| Layer | Technology | Notes |
 |---|---|---|
-| Распознавание речи | faster-whisper small (CUDA) | оффлайн, 0.1–0.8 с на фразу |
-| Мозг | Ollama + Qwen 3 8B | оффлайн, без лимитов |
-| Синтез речи | Edge TTS + SAPI-фолбэк | онлайн / оффлайн |
-| Управление ПК | `pynput`, PowerShell, WinAPI | — |
+| Speech recognition | faster-whisper small (CUDA) | offline, 0.1-0.8 s per phrase |
+| Thinking | Ollama + Qwen 3 8B | local, no cloud |
+| Voice output | Edge TTS + SAPI fallback | Russian / English |
+| System control | pynput, PowerShell, WinAPI | - |
 
-Всё, кроме озвучки Edge, работает без интернета. Модель и история диалога никуда не отправляются.
+If Edge TTS is unavailable, the assistant automatically falls back to the built-in voice.
 
-## Быстрый старт
+## Quick start
 
 ```bat
 jarvis.bat
 ```
 
-**Активация:** нажми **PgUp** на клавиатуре, затем говори команду. Или просто говори — Jarvis слушает постоянно.
+**Important:** press **PgUp** to activate, then say a command. To stop — Jarvis stops listening.
 
-Скрипт сам создаст `.venv`, поставит зависимости и запустит ассистента. При первом запуске whisper скачает модель (~500 МБ).
+The project uses `.venv`; dependencies are installed automatically on first run. The Whisper model is about 500 MB.
 
-Проверить, что всё на месте:
+Check your environment:
 
 ```bat
 jarvis.bat --check
 ```
 
-Проверить микрофон и уровень сигнала:
+Calibrate the microphone:
 
 ```bat
 jarvis.bat --calibrate
 ```
 
-## Как говорить
+## Example commands
 
-**Активация:** нажми **PgUp** на клавиатуре, затем говори команду. Или просто говори — Jarvis слушает постоянно.
+Say "Jarvis" or the wake word:
 
-Обращение по имени обязательно (по умолчанию «Джарвис», «Jarvis» или «компьютер»):
+- "Jarvis, what time is it"
+- "Jarvis, weather in Moscow" / "Jarvis, weather in London"
+- "Jarvis, open Chrome"
+- "Jarvis, shut down"
+- "Jarvis, volume up" / "volume down" / "mute"
+- "Jarvis, take a screenshot"
+- "Jarvis, type hello world"
+- "Jarvis, find files named report"
+- "Jarvis, remind me at 17:00 to call mom"
+- "Jarvis, play music" — Spotify/YouTube search
 
-- «Джарвис, открой хром»
-- «Джарвис, громче» / «тише» / «выключи звук»
-- «Джарвис, следующий трек»
-- «Джарвис, сделай скриншот»
-- «Джарвис, сверни все окна», «закрой окно»
-- «Джарвис, заблокируй компьютер»
-- «Джарвис, найди погоду в Москве»
-- «Джарвис, который час»
-- «Джарвис, что лежит в папке Загрузки»
-- «Джарвис, открой калькулятор и посчитай 17 умножить на 23»
-- «Джарвис, выключи компьютер» → спросит подтверждение
+Complex tasks (search, code, files, weather, reminders) are handled by **Ollama with tools**.
 
-Самые частые команды (громкость, плеер, скриншот, время, блокировка, открытие приложений) выполняются **мгновенно и без модели** — даже если Ollama выключена.
-
-## Два языка
-
-Говори по-русски или по-английски — ассистент определяет язык автоматически и отвечает на нём же:
-
-- «Джарвис, какой час» / «Jarvis, what time is it»
-- «Джарвис, погода в Москве» / «Jarvis, weather in Moscow»
-- «Джарвис, открой хром» / «Jarvis, open chrome»
-- «Джарвис, выключись» / «Jarvis, shut down»
-
-Выход: сказать «Джарвис, выключись», нажать `Ctrl+C` или `Ctrl+Alt+Q`.
-
-## Распознаватель учится
-
-Jarvis запоминает, какие слова ты произносишь часто, и подсказывает их whisper'у как `hotwords` — в следующий раз он слышит их лучше. Словарь хранится в `logs/vocab.json`; слово попадает в подсказку только после 2 повторений, чтобы разовая ошибка распознавания не закрепилась навсегда.
+## CLI
 
 ```bat
-jarvis.bat --vocab             :: что уже выучено
-jarvis.bat --remember обсидиан :: закрепить слово (всегда подсказывать)
-jarvis.bat --forget обсидиан   :: забыть слово
+jarvis.bat                     :: start
+jarvis.bat --check             :: environment check
+jarvis.bat --calibrate         :: microphone calibration
+jarvis.bat --list-devices      :: list input devices
+jarvis.bat --device 1          :: select device by index
+jarvis.bat --text "hello"      :: process one phrase without microphone
+jarvis.bat --no-wake           :: disable wake word
+jarvis.bat --no-tts            :: disable voice output
+jarvis.bat --asr-model medium  :: choose Whisper model
+jarvis.bat --model qwen3:4b    :: choose Ollama model
+jarvis.bat --autostart         :: add to Windows startup
+jarvis.bat --no-autostart      :: remove from startup
+jarvis.bat --vocab             :: show learned words
+jarvis.bat --remember word     :: remember a word
+jarvis.bat --forget word       :: forget a word
 ```
 
-Настройка в `config.json` → `asr`:
-- `learn_words` — автообучение (по умолчанию true)
-- `hotwords` — список слов, которые всегда подсказывать
-- `hotwords_limit` — сколько слов максимум подсказывать (по умолчанию 40)
-- `hotwords_min_count` — сколько раз слово должно прозвучать, чтобы попасть в подсказку (по умолчанию 2)
+## Vocabulary learning
 
-## Команды CLI
+Jarvis learns words automatically and stores them in `logs/vocab.json`. Hotwords are passed to Whisper, which improves recognition of names and apps.
 
-```bat
-jarvis.bat                     :: запуск
-jarvis.bat --check             :: диагностика окружения
-jarvis.bat --calibrate         :: проверка микрофона
-jarvis.bat --list-devices      :: список микрофонов
-jarvis.bat --device 1          :: выбрать микрофон по индексу
-jarvis.bat --text "привет"     :: одна текстовая команда без микрофона
-jarvis.bat --no-wake           :: слушать без обращения по имени
-jarvis.bat --no-tts            :: без озвучки
-jarvis.bat --asr-model medium  :: точнее, но медленнее
-jarvis.bat --model qwen3:4b    :: другая модель (быстрее)
-jarvis.bat --autostart         :: добавить в автозагрузку
-jarvis.bat --no-autostart      :: убрать из автозагрузки
-jarvis.bat --vocab             :: показать выученные слова-подсказки
-jarvis.bat --remember слово    :: слово, которое всегда нужно слышать
-jarvis.bat --forget слово      :: убрать слово из словаря
-```
+**How it works:**
+1. Whisper recognizes a word (possibly incorrectly)
+2. If the command succeeds, the word is learned
+3. After 2+ occurrences it becomes a hotword
+4. Whisper then recognizes it better
 
-## Словарь (автообучение)
+Examples:
+- "Remember word Spotify" / "Forget word Spotify"
+- "What words" / "Show vocabulary"
 
-Jarvis ведёт пользовательский словарь `vocab.json` в папке `logs/`. Часто используемые слова автоматически добавляются в hotwords для Whisper — это улучшает распознавание.
+Config in `config.json` under `asr`:
+- `learn_words` - enable learning (default true)
+- `hotwords` - initial hotword list
+- `hotwords_limit` - max hotwords (default 40)
+- `hotwords_min_count` - min occurrences to learn (default 2)
 
-**Как работает:**
-1. Вы говорите команду → Whisper распознаёт речь (с подсказкой из словаря)
-2. Если команда выполнилась успешно → слова добавляются в счётчик
-3. После 2+ повторений слово становится постоянным hotword
-4. В следующий раз Whisper лучше распознаёт это слово
+## Configuration
 
-**Управление голосом:**
-- «Запомни слово Spotify» / «Remember word Spotify» — добавить слово
-- «Забудь слово Spotify» / «Forget word Spotify» — удалить слово
-- «Какие слова» / «What words» — показать словарь
+Edit `config.json` (created on first run):
 
-**Исправления (ASR ошибки):**
-В `vocab.json` есть секция `corrections` — словарь «ошибка → правильное слово». Например:
-```json
-{
-  "jardis": "jarvis",
-  "jorvis": "jarvis",
-  "претти": "pretty"
-}
-```
-Когда Whisper распознаёт «jardis», Jarvis автоматически заменяет его на «jarvis».
-
-**Настройки в `config.json`:**
-| Ключ | Что делает |
-|------|-----------|
-| `asr.learn_words` | Автообучение (true/false) |
-| `asr.hotwords` | Начальные слова (список) |
-| `asr.hotwords_limit` | Максимум hotwords (по умолчанию 40) |
-| `asr.hotwords_min_count` | Сколько раз слово должно встретиться (по умолчанию 2) |
-
-## Настройка
-
-Всё лежит в `config.json` (создаётся при первом запуске):
-
-| Ключ | Что делает |
+| Key | Description |
 |---|---|
-| `wake_words` | слова-обращения |
-| `audio.device` | микрофон: индекс или часть имени |
-| `audio.silence_ms` | сколько тишины считать концом фразы |
-| `audio.min_rms` | порог громкости для начала речи |
+| `wake_words` | wake words |
+| `audio.device` | microphone: name or index |
+| `audio.silence_ms` | silence length to end a phrase |
+| `audio.min_rms` | minimum volume threshold |
 | `asr.model` | `tiny` / `base` / `small` / `medium` |
-| `asr.learn_words` | автообучение частых слов (true/false) |
-| `asr.hotwords` | слова, которые всегда подсказывать распознавателю |
-| `tts.voice` | голос Edge, например `ru-RU-DmitryNeural` |
-| `tts.rate` | скорость речи, `+8%` |
-| `llm.model` | модель Ollama |
-| `llm.think` | «размышление» qwen3: точнее, но +2–4 с |
-| `safety.confirm_destructive` | спрашивать подтверждение |
+| `asr.learn_words` | enable word learning (true/false) |
+| `asr.hotwords` | words always passed to Whisper |
+| `tts.voice` | Edge voice, e.g. `ru-RU-SvetlanaNeural` |
+| `tts.rate` | speech rate, e.g. `+8%` |
+| `llm.model` | Ollama model |
+| `llm.think` | Qwen3 "thinking": slower but +2-4% quality |
+| `safety.confirm_destructive` | confirm destructive actions |
 
-Сменить модель:
+Install another model:
 
 ```bat
 ollama pull llama3.1:8b
 ```
 
-и указать её в `config.json` → `llm.model`.
+Then set it in `config.json` under `llm.model`.
 
-## Безопасность
+## Safety
 
-Ассистент имеет широкий доступ к системе, поэтому встроены ограничения:
+Jarvis is cautious with destructive operations:
 
-1. **Разрушительные команды блокируются жёстко** — `format`, `diskpart`, `bcdedit`, удаление `C:\Windows` и т.п. не выполняются даже с подтверждением.
-2. **Опасные действия требуют голосового «да»** — выключение ПК, произвольные команды PowerShell, запись файлов.
-3. **Печать текста — только по явной просьбе** («напечатай», «введи»), чтобы модель не «печатала» ответы в активное окно.
-4. **Журнал действий** — `logs/audit.jsonl`: что вызвано, с какими аргументами, что вернуло.
-5. **Аварийная остановка** — `Ctrl+Alt+Q`.
+1. **Destructive commands are blocked** - `format`, `diskpart`, `bcdedit`, deleting `C:\Windows`, etc. are never executed, even with confirmation.
+2. **PowerShell scripts are restricted** - only safe cmdlets.
+3. **Deletion requires confirmation** ("yes"/"no"), and deletes go to the Recycle Bin, not permanent deletion.
+4. **Audit log** - `logs/audit.jsonl`: every action, parameters, and results.
+5. **Emergency stop** - `Ctrl+Alt+Q`.
 
-Правило простое: не оставляйте микрофон включённым в комнате, где вслух обсуждают «удали мне папку».
+Important: do not run Jarvis as Administrator unless you really need it.
 
-## Если что-то не работает
+## Troubleshooting
 
-| Симптом | Решение |
+| Problem | Solution |
 |---|---|
-| «Ollama недоступна» | запустите Ollama из меню Пуск, проверьте `ollama list` |
-| «Модель не найдена» | `ollama pull qwen3:8b` |
-| Не слышит | `jarvis.bat --list-devices`, затем `--device <индекс>` |
-| Ложные срабатывания | `--calibrate` в тишине, затем поднять `audio.min_rms` |
-| «cublas64_12.dll not found» | `pip install nvidia-cublas-cu12 nvidia-cudnn-cu12` в venv; иначе сам перейдёт на CPU |
-| Нет звука в ответах | нужен интернет для Edge TTS; оффлайн-фолбэк — SAPI (нужен русский голос в Windows) |
-| Долго думает | `llm.think: false` и/или модель поменьше (`qwen3:4b`) |
+| "Ollama unavailable" | start Ollama, check `ollama list` |
+| "Model not found" | `ollama pull qwen3:8b` |
+| No microphone | `jarvis.bat --list-devices`, then `--device <index>` |
+| Poor recognition | `--calibrate` and tune `audio.min_rms` |
+| "cublas64_12.dll not found" | install `nvidia-cublas-cu12` in venv or run on CPU |
+| No voice output | Edge TTS unavailable; SAPI fallback (Windows built-in voice) |
+| Slow responses | `llm.think: false` and/or a smaller model (`qwen3:4b`) |
 
-## Структура
+## Project structure
 
-```
+```text
 jarvis/
-  app.py             цикл прослушивания, подтверждения, CLI
-  audio.py           микрофон + VAD по энергии
-  asr.py             faster-whisper, авто-фолбэк на CPU
-  vocab.py           самообучающийся словарь частых слов (hotwords)
-  tts.py             Edge TTS → mp3 → sounddevice
-  llm.py             клиент Ollama + tool calling
-  tools.py           действия над ПК + защита + аудит
-  local_commands.py  мгновенные команды без модели
-  config.py          настройки и config.json
+  app.py             entry point, voice loop, confirmations, CLI
+  audio.py           microphone capture + VAD
+  asr.py             faster-whisper, hotword handling
+  vocab.py           user vocabulary (hotwords)
+  tts.py             Edge TTS -> mp3 -> sounddevice
+  llm.py             Ollama + tool calling
+  tools.py           PC tools + safety layer
+  local_commands.py  fast local commands
+  config.py          configuration and config.json
 logs/
-  jarvis.log         диалог
-  audit.jsonl        журнал инструментов
-  vocab.json         выученные слова (подсказки распознавателю)
-  tts_cache/         кэш озвучки
+  jarvis.log         logs
+  audit.jsonl        audit trail
+  vocab.json         learned words (auto-created)
+  tts_cache/         TTS cache
 ```
 
-## Лицензия
+## License
 
-Личное использование. Управление чужими компьютерами и обход защиты — не сюда.
+Free to use. Contributions and improvements are welcome.
