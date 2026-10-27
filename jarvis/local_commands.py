@@ -93,6 +93,8 @@ class LocalCommands:
             (r"(скриншот|снимок экрана|скрин|сделай снимок)", lambda: tools.call("screenshot", {})),
             # --- компьютер ---
             (r"(заблокируй|блокировка|заблокируй компьютер)", lambda: tools.call("lock_pc", {})),
+            (r"(выключи|отключи|заверши работу) (компьютер|пк|систему)|выключение компьютера", lambda: tools.call("power", {"action": "shutdown"})),
+            (r"(перезагрузи|перезапусти|рестарт) (компьютер|пк|систему)|перезагрузка компьютера", lambda: tools.call("power", {"action": "restart"})),
             (r"(сверни все окна|сверни все|покажи рабочий стол)", lambda: tools.call("window", {"action": "minimize_all"})),
             (r"(закрой окно|закрой это|закрой приложение)", lambda: tools.call("window", {"action": "close"})),
             (r"(переключи окно|следующее окно|альт таб)", lambda: tools.call("window", {"action": "switch"})),
@@ -122,6 +124,8 @@ class LocalCommands:
             (r"(screenshot|screen capture|take a screenshot|capture screen)", lambda: tools.call("screenshot", {})),
             # --- computer ---
             (r"(lock|lock computer|lock pc)", lambda: tools.call("lock_pc", {})),
+            (r"(shut down|shutdown|turn off|power off) (?:(?:the|my|your) )?(computer|pc|system)", lambda: tools.call("power", {"action": "shutdown"})),
+            (r"(restart|reboot) (?:(?:the|my|your) )?(computer|pc|system)", lambda: tools.call("power", {"action": "restart"})),
             (r"(minimize all|show desktop|minimise all)", lambda: tools.call("window", {"action": "minimize_all"})),
             (r"(close window|close this|close app)", lambda: tools.call("window", {"action": "close"})),
             (r"(switch window|next window|alt tab)", lambda: tools.call("window", {"action": "switch"})),

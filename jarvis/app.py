@@ -215,7 +215,7 @@ class Assistant:
             return False
         self.log("user", phrase)
         lang = "ru" if re.search(r"[а-яё]", phrase) else "en"
-        self.tools.lang = lang
+        self.tools.lang = "en"
         self.local.lang = lang
         self.speaker.lang = "en"
 
