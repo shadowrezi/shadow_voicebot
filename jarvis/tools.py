@@ -581,7 +581,7 @@ class Tools:
             code = jar.get("currencyCode")
             cur = currency_map.get(code, str(code))
             bal = jar.get("balance", 0) / 100
-            goal = jar.get("goal", 0) / 100
+            goal = ((jar.get("goal") or 0) / 100)
             jars.append(f"{jar.get('title', 'jar')} {cur}: {bal:.2f}/{goal:.2f}")
         info = data.get("name") or ""
         lines = [f"Monobank {info}:".strip()]
