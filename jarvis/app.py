@@ -217,7 +217,7 @@ class Assistant:
         lang = "ru" if re.search(r"[а-яё]", phrase) else "en"
         self.tools.lang = lang
         self.local.lang = lang
-        self.speaker.lang = lang
+        self.speaker.lang = "en"
 
         stripped, has_wake = self._strip_wake(phrase)
         require_wake = bool(self.config.get("require_wake_word", True))
@@ -228,7 +228,7 @@ class Assistant:
 
         command = stripped if has_wake else phrase
         if not command:
-            # Позвали по имени без команды — короткий отклик, остаёмся на связи.
+            # Called by name without a command - short response, stay connected.
             self._conversation_until = time.monotonic() + self._conversation_timeout
             self.say("I'm listening.", lang=lang)
             return False
