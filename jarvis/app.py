@@ -19,6 +19,7 @@ from .asr import Transcriber
 from .audio import Mic, list_input_devices
 from .config import LOG_DIR, Config
 from .llm import LLM
+from .hologram import HologramOverlay
 from .local_commands import LocalCommands, Result, normalize
 from .tools import Tools
 from .tts import Speaker
@@ -134,6 +135,7 @@ class Assistant:
         self.asr.hotwords = self.vocab.hotwords()
         self.local = LocalCommands(self.tools)
         self.llm = LLM(self.config, self.tools)
+        self.hologram = HologramOverlay()
         self._stop = threading.Event()
         self._busy = False
         self._conversation_until: float = 0.0
@@ -224,12 +226,14 @@ class Assistant:
         in_conversation = time.monotonic() < self._conversation_until
         if require_wake and not has_wake and not in_conversation:
             self.print_status(f"ignored: {phrase}", "dim")
+            self.hologram.set_answer("Please say my wake word first.")
             return False
 
         command = stripped if has_wake else phrase
         if not command:
             # Called by name without a command - short response, stay connected.
             self._conversation_until = time.monotonic() + self._conversation_timeout
+            self.hologram.set_answer("Beep-boop. I'm listening.")
             self.say("I'm listening.", lang=lang)
             return False
 
@@ -250,6 +254,7 @@ class Assistant:
                 ):
                     self.vocab.learn(phrase, success=True)
                     self.asr.hotwords = self.vocab.hotwords()
+                self.hologram.set_answer(local_result.text)
                 self.say(local_result.text)
                 return local_result.exit
 
@@ -261,6 +266,7 @@ class Assistant:
             # Учимся из успешного ответа LLM
             self.vocab.learn(phrase, success=True)
             self.asr.hotwords = self.vocab.hotwords()
+            self.hologram.set_answer(answer)
             self.say(answer)
             return False
         finally:
@@ -375,6 +381,7 @@ class Assistant:
                     f"{self.config.get('llm.model')} - whisper {self.config.get('asr.model')}", "dim"))
         print(paint("  PgUp - activate. Or speak directly. 'shut down' / 'exit' - quit.\n", "dim"))
 
+        self.hologram.start()
         self.mic.open()
         self.print_status("calibrating microphone...", "dim")
         floor = self.mic.calibrate()
@@ -409,6 +416,7 @@ class Assistant:
                     in_conversation = time.monotonic() < self._conversation_until
                     # If not in conversation - wait for PgUp or wake word.
                     if not in_conversation:
+                        self.hologram.hide()
                         self.print_status("waiting for PgUp or wake word...", "dim")
                         # Ждём PgUp или wake word
                         while not self._stop.is_set():
@@ -422,6 +430,7 @@ class Assistant:
                             time.sleep(0.1)
                         if self._stop.is_set():
                             break
+                        self.hologram.show()
                         self.print_status("listening...", "green")
                         time.sleep(0.2)
 
@@ -431,14 +440,21 @@ class Assistant:
                         if in_conversation:
                             self._conversation_until = 0.0
                             self.print_status("conversation mode ended", "dim")
+                        self.hologram.hide()
                         continue
                     heard = self.asr.transcribe(audio, hotwords=self.vocab.hotwords())
                     # Применяем исправления из словаря (ASR ошибки → правильные слова)
                     heard = self.vocab.correct(heard)
                     if not heard:
+                        if not self._conversation_mode:
+                            self.hologram.hide()
                         continue
                     print(paint(f"🎤 {heard}", "cyan"), flush=True)
-                    if self.handle_text(heard):
+                    self.hologram.set_question(heard)
+                    should_exit = self.handle_text(heard)
+                    if not self._conversation_mode or time.monotonic() >= self._conversation_until:
+                        self.hologram.hide()
+                    if should_exit:
                         break
                 except Exception as exc:  # noqa: BLE001 — одна фраза не должна убить ассистента
                     self.print_status(f"phrase error: {type(exc).__name__}: {exc}", "red")
@@ -451,6 +467,7 @@ class Assistant:
                 self._pgup_listener.stop()
             self.mic.close()
             self.speaker.shutdown()
+            self.hologram.close()
             self._stop.set()
         return 0
 

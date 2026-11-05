@@ -25,6 +25,7 @@ jarvis.bat
 ```
 
 **Important:** press **PgUp** to activate, then say a command. To stop — Jarvis stops listening.
+When activated, a blue R2-D2-style hologram appears on the desktop, showing the recognized question and Jarvis's response. It disappears when Jarvis finishes listening.
 
 The project uses `.venv`; dependencies are installed automatically on first run. The Whisper model is about 500 MB.
 
